@@ -1,0 +1,1651 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<style>
+  body {
+    margin: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    min-height: 100vh;
+    font-family: Inter, Arial, sans-serif;
+    background: radial-gradient(circle at top left, #2b2f39 0%, #121418 55%, #080a0f 100%);
+    color: #f5f5f5;
+  }
+  canvas {
+    display: block;
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    touch-action: none;
+    cursor: grab;
+    z-index: 0;
+  }
+  #uiShell {
+    position: relative;
+    z-index: 10;
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 16px;
+  }
+  .top-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    align-items: flex-start;
+  }
+  .right-column {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: min(100%, 380px);
+  }
+  .panel {
+    position: relative;
+    z-index: 10;
+    padding: 24px;
+    border-radius: 24px;
+    background: rgba(16, 18, 24, 0.92);
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 24px 60px rgba(0,0,0,0.35);
+    backdrop-filter: blur(16px);
+    width: min(100%, 380px);
+  }
+  .panel h1 {
+    margin: 0 0 10px 0;
+    font-size: 28px;
+    line-height: 1.05;
+  }
+  .panel p {
+    margin: 10px 0;
+    line-height: 1.5;
+    color: #c3c3c3;
+  }
+  .status-block {
+    margin-top: 16px;
+    padding: 16px;
+    border-radius: 18px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: #e6e6e6;
+  }
+  .control-row {
+    margin-top: 20px;
+    display: grid;
+    gap: 14px;
+  }
+  .file-input {
+    width: 100%;
+    padding: 14px 16px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.07);
+    color: #f7f7f7;
+  }
+  .button {
+    width: 100%;
+    padding: 14px 16px;
+    border-radius: 16px;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+  }
+  .button:hover {
+    transform: translateY(-1px);
+  }
+  .button:active {
+    transform: translateY(0);
+  }
+  .primary {
+    background: linear-gradient(135deg, #f5c94f 0%, #e7aa11 100%);
+    color: #111;
+    box-shadow: 0 18px 40px rgba(231, 170, 17, 0.2);
+  }
+  .secondary {
+    background: rgba(255,255,255,0.08);
+    color: #f5f5f5;
+    border: 1px solid rgba(255,255,255,0.12);
+  }
+  .preview-panel, .info-panel {
+    position: relative;
+    z-index: 10;
+    width: min(100%, 340px);
+    max-width: 360px;
+    padding: 16px;
+    border-radius: 18px;
+    background: rgba(12, 14, 18, 0.92);
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 24px 60px rgba(0,0,0,0.32);
+    backdrop-filter: blur(16px);
+    margin: 16px 0;
+    float: right;
+    margin-left: 20px;
+  }
+  .preview-panel {
+    width: min(100%, 340px);
+  }
+  #previewPanel {
+    position: fixed;
+    right: 24px;
+    top: 340px;
+    width: min(100%, 340px);
+    max-width: 340px;
+    z-index: 11;
+    margin: 0;
+  }
+  .preview-panel h2,
+  .info-panel h2 {
+    margin: 0 0 12px 0;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #cfcfcf;
+  }
+  .preview-caption {
+    margin: 0 0 8px 0;
+    font-size: 12px;
+    color: #8f9ca7;
+  }
+  .preview-image {
+    width: 100%;
+    height: 140px;
+    object-fit: contain;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.16);
+    background: #0f1116;
+    margin-top: 8px;
+    display: block;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.18);
+  }
+  .preview-block {
+    margin-bottom: 18px;
+  }
+  .info-panel {
+    bottom: auto;
+    right: auto;
+    display: none;
+    width: min(100%, 340px);
+    min-width: 240px;
+    max-width: 360px;
+    padding: 14px;
+  }
+  #ipfsPanel {
+    display: none;
+    position: fixed;
+    right: 24px;
+    top: 24px;
+    width: min(100%, 340px);
+    max-width: 340px;
+    margin: 0;
+    float: none;
+    z-index: 20;
+  }
+  #infoContent {
+    font-size: 12px;
+    line-height: 1.5;
+    color: #d8d8d8;
+  }
+  #infoContent ul {
+    margin: 8px 0 0 16px;
+    padding: 0;
+    font-size: 12px;
+    color: #d0d0d0;
+  }
+  #infoContent li {
+    margin-bottom: 4px;
+  }
+  .legend-row {
+    margin-top: 16px;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-size: 13px;
+    color: #d8d8d8;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  #loading {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 15;
+    font-size: 15px;
+    color: #ffd966;
+  }
+  #canvasOverlay {
+    position: fixed;
+    z-index: 5;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 22px 28px;
+    border-radius: 18px;
+    background: rgba(8, 14, 24, 0.88);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: #e8e8e8;
+    font-size: 16px;
+    line-height: 1.5;
+    text-align: center;
+    max-width: 420px;
+    pointer-events: none;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.25);
+  }
+  #canvasOverlay.hidden {
+    display: none;
+  }
+</style>
+</head>
+<body>
+<div class="panel">
+  <h1>AI-Powered Floor Plan to 3D Converter</h1>
+  <p>Automatically detects walls, windows and rooms then reconstructs a polished 3D model.</p>
+  <div class="status-block">
+    <div id="status">Initializing...</div>
+    <div id="summary" style="margin-top:10px; color:#a8a8a8;"></div>
+    <div id="hint" style="margin-top:10px; color:#8f9da8; font-size:13px;">Upload an image and explore the rendered 3D model.</div>
+    <div id="costReportSummary" style="margin-top:10px; font-size:13px; color:#b8b8b8; line-height:1.4;">Cost Report: unavailable until the model is generated.</div>
+    <div id="ipfsLink" style="margin-top:16px;font-size:14px;line-height:1.5;color:#d8d8d8;"></div>
+  </div>
+  <div class="control-row">
+    <input type="file" id="upload" class="file-input" accept="image/*">
+    <button onclick="uploadFloorplan()" class="button primary">Generate 3D</button>
+    <button onclick="exportModel()" class="button secondary">Export for CAD / BIM</button>
+    <button onclick="downloadCostReport()" class="button secondary">Export Cost PDF</button>
+  </div>
+  <div class="legend-row">
+    <div class="legend-item">🟨 Wall</div>
+    <div class="legend-item">🟩 Door</div>
+    <div class="legend-item">🟦 Window</div>
+  </div>
+</div>
+<canvas id="c"></canvas>
+<div id="canvasOverlay">Upload a floor plan image or use the button to render the 3D model.</div>
+<div id="previewPanel" class="preview-panel">
+  <h2>Preview pipeline</h2>
+  <div class="preview-block">
+    <div class="preview-caption">Original</div>
+    <img id="originalPreview" src="" class="preview-image" />
+  </div>
+  <div class="preview-block">
+    <div class="preview-caption">Detected edges</div>
+    <img id="edgePreview" src="" class="preview-image" />
+  </div>
+</div>
+<div id="ipfsPanel" class="preview-panel">
+  <h2>Web3 model</h2>
+  <div id="ipfsPanelContent" style="font-size:14px; line-height:1.6; color:#d8d8d8;">IPFS model details appear here after upload.</div>
+</div>
+<div id="infoPanel" class="info-panel">
+  <h2>Scene details</h2>
+  <div id="infoContent">Click a wall in the 3D model to view recommended materials and structural type.</div>
+</div>
+<div style="clear: both;"></div>
+<p id="loading" style="display:none; color:#ffcc00; position:fixed; top:16px; right:16px; z-index:15; font-size:14px;">Generating 3D...</p>
+<script>
+let scene, camera, renderer, controls;
+let latestModel = null;
+let cameraAnimation = null;
+let raycaster, pointer;
+let hoveredWall = null;
+let hoverLabel = null;
+const roomNames = ['Living Room', 'Bedroom', 'Kitchen', 'Bathroom', 'Dining Room', 'Hall', 'Office', 'Storage'];
+const PLAN_SCALE = 0.25;
+const WALL_THICKNESS = 3.2;
+
+function getRoomColor(label) {
+    if (!label) return 0x556677;
+    const key = label.toLowerCase();
+    if (key.includes('living')) return 0x8fa8cc;
+    if (key.includes('bed')) return 0x8cc8b7;
+    if (key.includes('kitchen')) return 0xd8b07a;
+    if (key.includes('bath')) return 0x9eb8d8;
+    if (key.includes('dining')) return 0xd8a87a;
+    if (key.includes('hall')) return 0x9a9aa5;
+    if (key.includes('office')) return 0xa8c8d8;
+    if (key.includes('storage')) return 0xb8b8b8;
+    return 0x8899aa;
+}
+
+function initScene() {
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x081015);
+
+    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 10000);
+    camera.position.set(60, 70, 80);
+    camera.lookAt(0, 0, 0);
+    cameraAnimation = { active: false };
+
+    const canvas = document.getElementById('c');
+    if (!canvas) {
+        console.error('Renderer canvas not found');
+        return;
+    }
+
+    let rendererCreated = false;
+    try {
+        renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+        rendererCreated = true;
+    } catch (e) {
+        console.warn('WebGLRenderer failed, trying WebGL1Renderer', e);
+    }
+    if (!rendererCreated && typeof THREE.WebGL1Renderer === 'function') {
+        try {
+            renderer = new THREE.WebGL1Renderer({ canvas, antialias: true });
+            rendererCreated = true;
+        } catch (e) {
+            console.error('WebGL1Renderer failed', e);
+        }
+    }
+    if (!rendererCreated) {
+        const status = document.getElementById('status');
+        if (status) status.textContent = 'WebGL unavailable in this browser';
+        return;
+    }
+
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.domElement.style.touchAction = 'none';
+    renderer.domElement.tabIndex = 0;
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x101010);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+    dirLight.position.set(20, 30, 10);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    scene.add(dirLight);
+    const ambient = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambient);
+
+    const grid = new THREE.GridHelper(120, 30, 0x888888, 0x444444);
+    grid.material.opacity = 0.75;
+    grid.material.transparent = true;
+    scene.add(grid);
+
+    const floorGeo = new THREE.PlaneGeometry(120, 120);
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0x222222, side: THREE.DoubleSide, roughness: 0.8, metalness: 0.05 });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = 0;
+    floor.receiveShadow = true;
+    floor.name = 'floor';
+    scene.add(floor);
+
+    raycaster = new THREE.Raycaster();
+    pointer = new THREE.Vector2();
+    renderer.domElement.addEventListener('pointermove', onPointerMove);
+    renderer.domElement.addEventListener('pointerleave', clearHover);
+    renderer.domElement.addEventListener('pointerout', clearHover);
+
+    if (typeof THREE.OrbitControls === 'function') {
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 0, 0);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.12;
+        controls.rotateSpeed = 0.75;
+        controls.zoomSpeed = 1.1;
+        controls.panSpeed = 0.8;
+        controls.enablePan = true;
+        controls.enableZoom = true;
+        controls.enableRotate = true;
+        controls.update();
+    } else {
+        console.warn('OrbitControls not loaded; using basic camera rotation fallback.');
+        controls = { update: () => {} };
+    }
+
+    window.addEventListener('resize', onResize);
+    animate();
+}
+
+function onResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function updateCameraAnimation() {
+    if (!cameraAnimation || !cameraAnimation.active) return;
+    const elapsed = performance.now() - cameraAnimation.begin;
+    const t = Math.min(elapsed / cameraAnimation.duration, 1);
+    camera.position.lerpVectors(cameraAnimation.start, cameraAnimation.end, t);
+    if (t >= 1) {
+        cameraAnimation.active = false;
+    }
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    updateCameraAnimation();
+    if (controls && typeof controls.update === 'function') {
+        controls.update();
+    }
+    if (renderer && scene && camera) {
+        renderer.render(scene, camera);
+    }
+}
+
+function clearScene() {
+    scene.children.slice().forEach(child => {
+        if (!child.isLight && !child.isGridHelper && !child.isAxesHelper && child.name !== 'floor') {
+            scene.remove(child);
+        }
+    });
+}
+
+function fitCameraToPlan(minX, maxX, minY, maxY, scale) {
+    if (!camera || !controls) return;
+    const width = Math.max(0.1, (maxX - minX) * scale);
+    const depth = Math.max(0.1, (maxY - minY) * scale);
+    const radius = Math.sqrt(width * width + depth * depth) * 0.5;
+    const fov = (camera.fov || 60) * Math.PI / 180;
+    const distance = Math.max(radius / Math.sin(fov / 2) * 1.2, 80);
+    camera.position.set(distance, Math.max(distance * 0.6, 45), distance);
+    controls.target.set(0, 0, 0);
+    controls.update();
+}
+
+function makeLabelSprite(message) {
+    const rawLines = `${message || ''}`.split('\n');
+    const padding = 20;
+    const lineHeight = 34;
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    context.font = '32px Inter, Arial, sans-serif';
+    const lineWidths = rawLines.map(line => context.measureText(line).width);
+    const width = Math.min(760, Math.max(...lineWidths) + padding * 2);
+    const height = padding * 2 + rawLines.length * lineHeight;
+    canvas.width = Math.max(width, 320);
+    canvas.height = Math.max(height, 110);
+    context.font = '32px Inter, Arial, sans-serif';
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.fillStyle = 'rgba(8, 14, 30, 0.96)';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.strokeStyle = 'rgba(120, 190, 255, 0.96)';
+    context.lineWidth = 5;
+    context.strokeRect(4, 4, canvas.width - 8, canvas.height - 8);
+    context.fillStyle = '#f0f6ff';
+    context.textBaseline = 'top';
+    const textPadding = 20;
+    rawLines.forEach((line, index) => {
+        context.fillText(line, textPadding, textPadding + index * lineHeight);
+    });
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, depthWrite: false, transparent: true });
+    const sprite = new THREE.Sprite(material);
+    sprite.scale.set(canvas.width * 0.14, canvas.height * 0.14, 1);
+    sprite.name = 'label';
+    return sprite;
+}
+
+function addWindowBadge(x, y, z, offsetX = 12) {
+    const size = 8;
+    const geo = new THREE.PlaneGeometry(size, size * 0.7);
+    const mat = new THREE.MeshBasicMaterial({ color: 0x3fa9ff, transparent: true, opacity: 0.95, side: THREE.DoubleSide });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(x + offsetX, y, z);
+    mesh.rotation.y = -Math.PI / 4;
+    mesh.renderOrder = 1;
+    mesh.name = 'window-badge';
+    scene.add(mesh);
+    return mesh;
+}
+
+function addDoorBadge(x, y, z, offsetX = 0, offsetZ = 0) {
+    const width = 10;
+    const height = 6;
+    const geo = new THREE.PlaneGeometry(width, height);
+    const mat = new THREE.MeshBasicMaterial({ color: 0xffa500, transparent: true, opacity: 0.9, side: THREE.DoubleSide });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(x + offsetX, y, z + offsetZ);
+    mesh.rotation.y = -Math.PI / 4;
+    mesh.renderOrder = 1;
+    mesh.name = 'door-badge';
+    scene.add(mesh);
+    return mesh;
+}
+
+function addLabel(text, x, y, z) {
+    const label = makeLabelSprite(text);
+    label.position.set(x, y, z);
+    scene.add(label);
+    return label;
+}
+
+function showHoverLabel(text, x, y, z) {
+    clearHoverLabel();
+    if (!text) return null;
+    const label = makeLabelSprite(text);
+    label.position.set(x, y, z);
+    label.name = 'hover-label';
+    scene.add(label);
+    hoverLabel = label;
+    return label;
+}
+
+function clearHoverLabel() {
+    if (!hoverLabel) return;
+    scene.remove(hoverLabel);
+    if (hoverLabel.material) {
+        if (hoverLabel.material.map) hoverLabel.material.map.dispose();
+        hoverLabel.material.dispose();
+    }
+    hoverLabel = null;
+}
+
+function clearHover() {
+    hoveredWall = null;
+    clearHoverLabel();
+}
+
+function showIpfsLink(localUrl, publicUrl) {
+    const panel = document.getElementById('ipfsPanel');
+    const inline = document.getElementById('ipfsLink');
+    const container = panel || inline;
+    if (!container) return;
+    const hasUrl = localUrl || publicUrl;
+    if (hasUrl) {
+        const displayUrl = localUrl || publicUrl;
+        const displayText = localUrl ? 'Download from local IPFS gateway' : 'Download from public IPFS gateway';
+        container.innerHTML = `<div style="padding:14px 16px; border-radius:16px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12);">
+            <strong style="display:block; margin-bottom:8px; color:#ffd966;">🌐 Stored on Web3 (IPFS)</strong>
+            <div style="margin-bottom:8px; font-size:13px; color:#d8d8d8;">The link below points to the raw .gltf file in IPFS. You can also view it directly in the in-app GLTF viewer.</div>
+            <a href="${displayUrl}" target="_blank" rel="noopener noreferrer" style="color:#ffd966; text-decoration:none; display:block; margin-bottom:6px;">${displayText}</a>
+            <a id="publicIpfsLink" href="${publicUrl || '#'}" target="_blank" rel="noopener noreferrer" style="color:#a8d8ff; text-decoration:none; font-size:13px; ${publicUrl ? '' : 'display:none;'}">Download from public IPFS gateway</a>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
+                <button onclick="viewIpfsModel()" class="button secondary" style="width:auto; padding:10px 14px;">View IPFS model in viewer</button>
+                <button onclick="clearIpfsView()" class="button secondary" style="width:auto; padding:10px 14px;">Clear IPFS viewer</button>
+            </div>
+        </div>`;
+        if (panel) panel.style.display = 'block';
+        if (inline) inline.textContent = 'IPFS model ready. Use the Web3 model panel on the right to view it.';
+    } else {
+        container.innerHTML = '';
+        if (panel) panel.style.display = 'none';
+        if (inline) inline.textContent = '';
+    }
+}
+function viewIpfsModel() {
+    if (!latestModel || (!latestModel.ipfs_url && !latestModel.ipfs_url_public)) {
+        alert('No IPFS model available yet. Generate the model first.');
+        return;
+    }
+
+    const localUrl = latestModel.ipfs_url;
+    const publicUrl = latestModel.ipfs_url_public;
+    const url = localUrl || publicUrl;
+    const fallbackUrl = localUrl && publicUrl ? publicUrl : null;
+    if (!url) {
+        alert('IPFS URL is not available.');
+        return;
+    }
+
+    if (!window.THREE || !THREE.GLTFLoader) {
+        alert('GLTF Viewer is not available in this browser.');
+        return;
+    }
+
+    const existing = scene.getObjectByName('ipfs-model-group');
+    if (existing) {
+        scene.remove(existing);
+    }
+
+    setStatus('Loading IPFS model...');
+    const loader = new THREE.GLTFLoader();
+    function attemptLoad(currentUrl, fallback) {
+        loader.load(currentUrl, function(gltf) {
+            const group = new THREE.Group();
+            group.name = 'ipfs-model-group';
+            group.add(gltf.scene);
+            centerObject(group);
+            scene.add(group);
+            const box = new THREE.Box3().setFromObject(group);
+            if (box.isEmpty() === false) {
+                const size = box.getSize(new THREE.Vector3());
+                const maxDim = Math.max(size.x, size.y, size.z);
+                const scale = maxDim > 0 ? Math.min(1.4, 120 / maxDim) : 1;
+                group.scale.setScalar(scale);
+            }
+            setStatus('IPFS model loaded in viewer');
+        }, function(progress) {
+            if (progress && progress.loaded && progress.total) {
+                const percent = Math.round(progress.loaded / progress.total * 100);
+                setStatus(`Loading IPFS model... ${percent}%`);
+            }
+        }, function(error) {
+            console.error('GLTF load error', error);
+            if (fallback) {
+                console.warn('Attempting fallback public IPFS gateway');
+                attemptLoad(fallback, null);
+                return;
+            }
+            alert('Failed to load IPFS model in viewer. Check the IPFS gateway or try later.');
+            setStatus('IPFS model load failed');
+        });
+    }
+    attemptLoad(url, fallbackUrl);
+}
+
+function clearIpfsView() {
+    const existing = scene.getObjectByName('ipfs-model-group');
+    if (existing) {
+        scene.remove(existing);
+        if (existing.traverse) {
+            existing.traverse(obj => {
+                if (obj.geometry) obj.geometry.dispose();
+                if (obj.material) {
+                    if (Array.isArray(obj.material)) {
+                        obj.material.forEach(m => m.dispose && m.dispose());
+                    } else {
+                        obj.material.dispose && obj.material.dispose();
+                    }
+                }
+            });
+        }
+    }
+    setStatus('IPFS viewer cleared');
+}
+function centerObject(object) {
+    const box = new THREE.Box3().setFromObject(object);
+    const center = box.getCenter(new THREE.Vector3());
+    object.position.x -= center.x;
+    object.position.y -= center.y;
+    object.position.z -= center.z;
+}
+
+function showPlaceholder(message) {
+    const overlay = document.getElementById('canvasOverlay');
+    if (!overlay) return;
+    overlay.textContent = message || 'Upload a floor plan to begin.';
+    overlay.classList.remove('hidden');
+}
+
+function hidePlaceholder() {
+    const overlay = document.getElementById('canvasOverlay');
+    if (!overlay) return;
+    overlay.classList.add('hidden');
+}
+
+function formatMaterialInfo(material) {
+    if (!material) return '<div>No material recommendations available.</div>';
+    const recommendations = (material.recommendations || []).slice(0, 3);
+    let html = `<div><strong>Wall type:</strong> ${material.type || 'unknown'}</div>`;
+    html += `<div><strong>Best material:</strong> ${material.best || 'N/A'}</div>`;
+    if (recommendations.length) {
+        html += '<div style="margin-top:8px; font-weight:700;">Top candidates</div><ul style="margin:6px 0 0 16px; padding:0; list-style:disc;">';
+        recommendations.forEach(rec => {
+            html += `<li>${rec[0]} (${rec[1].toFixed(1)})</li>`;
+        });
+        html += '</ul>';
+    }
+    return html;
+}
+
+function onPointerMove(event) {
+    if (!camera || !raycaster) return;
+    const rect = renderer.domElement.getBoundingClientRect();
+    pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(pointer, camera);
+    const intersects = raycaster.intersectObjects(scene.children, true);
+    if (!intersects.length) {
+        clearHover();
+        return;
+    }
+
+    const priority = ['wall', 'door', 'window', 'room'];
+    const picked = intersects
+        .filter(i => i.object.userData && priority.includes(i.object.userData.type))
+        .sort((a, b) => priority.indexOf(a.object.userData.type) - priority.indexOf(b.object.userData.type))[0];
+    if (!picked) {
+        clearHover();
+        return;
+    }
+
+    if (hoveredWall === picked.object) return;
+    hoveredWall = picked.object;
+    const data = picked.object.userData;
+    let message = '';
+
+    if (data.type === 'wall') {
+        message = `<div style="font-size:13px; margin-bottom:6px;"><strong>Wall details</strong></div>${formatMaterialInfo(data.material)}`;
+    } else if (data.type === 'room') {
+        message = `<div style="font-size:13px; margin-bottom:6px;"><strong>${data.label || 'Room'}</strong></div>`;
+        if (data.bounds) {
+            const w = Math.abs(data.bounds[1][0] - data.bounds[0][0]);
+            const h = Math.abs(data.bounds[1][1] - data.bounds[0][1]);
+            message += `<div>Size: ${w} × ${h}</div>`;
+        }
+    } else if (data.type === 'door' || data.type === 'window') {
+        message = `<div style="font-size:13px; margin-bottom:6px;"><strong>${data.label || data.type}</strong></div>`;
+        if (data.size) {
+            message += `<div>Size: ${data.size.w} × ${data.size.h}</div>`;
+        }
+    }
+
+    if (message) {
+        const bounds = new THREE.Box3().setFromObject(picked.object);
+        const center = bounds.getCenter(new THREE.Vector3());
+        const labelY = bounds.max.y + 20;
+        if (data.type === 'wall') {
+            const wallLines = [
+                'Wall details',
+                `Wall type: ${data.material?.type || 'unknown'}`,
+                `Best material: ${data.material?.best || 'N/A'}`
+            ];
+            const recommendations = (data.material?.recommendations || []).slice(0, 3);
+            if (recommendations.length) {
+                wallLines.push('Top candidates');
+                recommendations.forEach(rec => {
+                    wallLines.push(`- ${rec[0]} (${rec[1].toFixed(1)})`);
+                });
+            }
+            showHoverLabel(wallLines.join('\n'), center.x, labelY, center.z);
+        } else if (data.type === 'room') {
+            showHoverLabel(data.label || 'Room', center.x, labelY, center.z);
+        } else if (data.type === 'door' || data.type === 'window') {
+            showHoverLabel(data.label || data.type, center.x, labelY, center.z);
+        } else {
+            clearHoverLabel();
+        }
+    } else {
+        clearHover();
+    }
+}
+
+function showOriginalPreview(source) {
+    const preview = document.getElementById('originalPreview');
+    if (!preview) return;
+    if (typeof source === 'string') {
+        preview.src = source;
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = e => preview.src = e.target.result;
+    reader.readAsDataURL(source);
+}
+
+function showEdgePreview(dataUrl, imagePath) {
+    const preview = document.getElementById('edgePreview');
+    if (!preview) return;
+    if (dataUrl) {
+        preview.src = dataUrl;
+    } else if (imagePath) {
+        preview.src = `${imagePath}?t=${Date.now()}`;
+    } else {
+        preview.src = '';
+    }
+}
+
+function renderCostReport(report) {
+    const el = document.getElementById('costReportSummary');
+    if (!el) return;
+    if (!report || !report.summary) {
+        el.innerHTML = '<strong>Cost Report:</strong> unavailable until the model is generated.';
+        return;
+    }
+
+    const items = report.items || [];
+    const materialLines = (report.summary.materials || []).map(item => `${item.name}: $${item.cost.toFixed(2)}`).join(' | ');
+    el.innerHTML = `
+        <div><strong>Cost Breakdown:</strong> $${report.summary.totalCost.toFixed(2)}</div>
+        <div style="margin-top:6px; font-size:12px; color:#a8a8a8;">${materialLines}</div>
+        <div style="margin-top:4px; font-size:12px; color:#a8a8a8;">${items.length} wall line items estimated</div>
+    `;
+}
+
+function downloadCostReport() {
+    if (!latestModel || !latestModel.costReport) {
+        alert('Generate the model first to create a cost breakdown report.');
+        return;
+    }
+    const { jsPDF } = window.jspdf || {};
+    if (typeof jsPDF !== 'function') {
+        alert('PDF export is not available at the moment.');
+        return;
+    }
+
+    const report = latestModel.costReport;
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    doc.setFontSize(18);
+    doc.text('Cost Breakdown Report', 40, 50);
+    doc.setFontSize(11);
+    doc.text(`Total estimate: $${report.summary.totalCost.toFixed(2)}`, 40, 76);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 40, 94);
+
+    let y = 120;
+    doc.setFontSize(12);
+    doc.text('Material totals:', 40, y);
+    y += 18;
+    (report.summary.materials || []).forEach(item => {
+        doc.text(`${item.name}: $${item.cost.toFixed(2)}`, 50, y);
+        y += 16;
+    });
+
+    y += 14;
+    doc.text('Wall line items:', 40, y);
+    y += 18;
+    report.items.forEach(item => {
+        if (y > 740) {
+            doc.addPage();
+            y = 40;
+        }
+        const line = `Wall ${item.wallIndex + 1}: ${item.material} (${item.lengthMeters}m @ $${item.unitCost}/m) = $${item.totalCost.toFixed(2)}`;
+        doc.text(line, 50, y);
+        y += 14;
+    });
+
+    doc.save('cost_breakdown_report.pdf');
+}
+
+function updateRoomSummary(count) {
+    const summary = document.getElementById('summary');
+    if (summary) {
+        if (count > 0) {
+            summary.innerHTML = `<b>AI-based spatial classification detected ${count} room${count === 1 ? '' : 's'} and reconstructed structure</b>`;
+        } else {
+            summary.innerHTML = `<b>AI detected structural layout successfully</b>`;
+        }
+    }
+}
+
+function updateFloor(walls, rooms) {
+    const allX = [];
+    const allY = [];
+    walls.forEach(w => {
+        allX.push(w[0][0], w[1][0]);
+        allY.push(w[0][1], w[1][1]);
+    });
+    (rooms || []).forEach(r => {
+        const bounds = r.bounds || r;
+        allX.push(bounds[0][0], bounds[1][0]);
+        allY.push(bounds[0][1], bounds[1][1]);
+    });
+    if (!allX.length || !allY.length) return;
+
+    const minX = Math.min(...allX);
+    const maxX = Math.max(...allX);
+    const minY = Math.min(...allY);
+    const maxY = Math.max(...allY);
+    const scale = PLAN_SCALE;
+    const width = Math.max(10, (maxX - minX) * scale);
+    const depth = Math.max(10, (maxY - minY) * scale);
+
+    const floor = scene.getObjectByName('floor');
+    if (!floor) return;
+    floor.geometry.dispose();
+    floor.geometry = new THREE.PlaneGeometry(width, depth);
+    floor.position.set(0, 0, 0);
+    floor.rotation.set(-Math.PI / 2, 0, 0);
+}
+
+function connectNorthWalls(walls) {
+    const wallItems = walls || [];
+    if (wallItems.length < 2) return wallItems;
+
+    const allYs = wallItems.flatMap(w => [w[0][1], w[1][1]]);
+    const topY = Math.max(...allYs);
+    const northEdges = wallItems.filter(w => Math.abs(w[0][1] - topY) < 6 && Math.abs(w[1][1] - topY) < 6);
+    if (northEdges.length < 2) return wallItems;
+
+    const xs = northEdges.flatMap(w => [w[0][0], w[1][0]]);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const northGap = 12;
+    if (maxX - minX < 2 * northGap + 20) return wallItems;
+    const connectStart = minX + northGap;
+    const connectEnd = maxX - northGap;
+
+    const alreadyConnected = northEdges.some(w => {
+        const x0 = w[0][0];
+        const x1 = w[1][0];
+        return (Math.abs(w[0][1] - topY) < 6 && Math.abs(w[1][1] - topY) < 6) &&
+            ((Math.abs(x0 - connectStart) < 4 && Math.abs(x1 - connectEnd) < 4) ||
+             (Math.abs(x1 - connectStart) < 4 && Math.abs(x0 - connectEnd) < 4));
+    });
+    if (alreadyConnected) return wallItems;
+
+    return [...wallItems, [[connectStart, topY], [connectEnd, topY]]];
+}
+
+function connectSouthWalls(walls) {
+    const wallItems = walls || [];
+    if (wallItems.length < 2) return wallItems;
+
+    const allYs = wallItems.flatMap(w => [w[0][1], w[1][1]]);
+    const bottomY = Math.min(...allYs);
+    const southEdges = wallItems.filter(w => Math.abs(w[0][1] - bottomY) < 6 && Math.abs(w[1][1] - bottomY) < 6);
+    if (southEdges.length < 2) return wallItems;
+
+    const xs = southEdges.flatMap(w => [w[0][0], w[1][0]]);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const edgeGap = 12;
+    if (maxX - minX < 2 * edgeGap + 20) return wallItems;
+    const connectStart = minX + edgeGap;
+    const connectEnd = maxX - edgeGap;
+
+    const alreadyConnected = southEdges.some(w => {
+        const x0 = w[0][0];
+        const x1 = w[1][0];
+        return (Math.abs(w[0][1] - bottomY) < 6 && Math.abs(w[1][1] - bottomY) < 6) &&
+            ((Math.abs(x0 - connectStart) < 4 && Math.abs(x1 - connectEnd) < 4) ||
+             (Math.abs(x1 - connectStart) < 4 && Math.abs(x0 - connectEnd) < 4));
+    });
+    if (alreadyConnected) return wallItems;
+
+    return [...wallItems, [[connectStart, bottomY], [connectEnd, bottomY]]];
+}
+
+function mergeConnectedWalls(walls) {
+    const wallItems = walls || [];
+    if (!wallItems.length) return wallItems;
+
+    const byOrientation = {
+        horizontal: [],
+        vertical: [],
+        other: []
+    };
+
+    wallItems.forEach(w => {
+        const [x1, y1] = w[0];
+        const [x2, y2] = w[1];
+        if (Math.abs(y1 - y2) < 8) {
+            byOrientation.horizontal.push({ y: (y1 + y2) / 2, x1: Math.min(x1, x2), x2: Math.max(x1, x2) });
+        } else if (Math.abs(x1 - x2) < 8) {
+            byOrientation.vertical.push({ x: (x1 + x2) / 2, y1: Math.min(y1, y2), y2: Math.max(y1, y2) });
+        } else {
+            byOrientation.other.push(w);
+        }
+    });
+
+    const mergeLineGroup = (lines, coordKey, startKey, endKey) => {
+        const groups = [];
+        lines.forEach(line => {
+            let added = false;
+            for (const group of groups) {
+                if (Math.abs(group.key - line[coordKey]) <= 6) {
+                    group.lines.push(line);
+                    added = true;
+                    break;
+                }
+            }
+            if (!added) {
+                groups.push({ key: line[coordKey], lines: [line] });
+            }
+        });
+
+        return groups.flatMap(group => {
+            const sorted = group.lines.slice().sort((a, b) => a[startKey] - b[startKey]);
+            const merged = [];
+            let current = { ...sorted[0] };
+            sorted.slice(1).forEach(line => {
+                if (line[startKey] <= current[endKey] + 8) {
+                    current[endKey] = Math.max(current[endKey], line[endKey]);
+                } else {
+                    merged.push({ ...current });
+                    current = { ...line };
+                }
+            });
+            merged.push(current);
+            return merged.map(line => {
+                if (coordKey === 'y') {
+                    return [[line.x1, line.y], [line.x2, line.y]];
+                }
+                return [[line.x, line.y1], [line.x, line.y2]];
+            });
+        });
+    };
+
+    const mergedHoriz = mergeLineGroup(byOrientation.horizontal, 'y', 'x1', 'x2');
+    const mergedVert = mergeLineGroup(byOrientation.vertical, 'x', 'y1', 'y2');
+    return [...mergedHoriz, ...mergedVert, ...byOrientation.other];
+}
+
+function draw(walls, rooms, doors, windows, materials, furniture = [], costReport = null) {
+    clearScene();
+    const wallItems = mergeConnectedWalls(connectSouthWalls(connectNorthWalls(walls || [])));
+    const roomItems = rooms || [];
+    const windowItems = windows || [];
+    if (!wallItems.length && !roomItems.length) {
+        showPlaceholder('No floor plan structure detected. Upload a clearer image or try a different plan.');
+        return;
+    }
+    hidePlaceholder();
+
+    console.log('draw counts', { walls: wallItems.length, rooms: roomItems.length, doors: (doors || []).length, windows: (windowItems || []).length });
+    const allX = [];
+    const allY = [];
+    wallItems.forEach(w => {
+        allX.push(w[0][0], w[1][0]);
+        allY.push(w[0][1], w[1][1]);
+    });
+    roomItems.forEach(r => {
+        const bounds = r.bounds || r;
+        allX.push(bounds[0][0], bounds[1][0]);
+        allY.push(bounds[0][1], bounds[1][1]);
+    });
+    windowItems.forEach(w => {
+        allX.push(w[0], w[0] + w[2]);
+        allY.push(w[1], w[1] + w[3]);
+    });
+
+    const minX = Math.min(...allX);
+    const maxX = Math.max(...allX);
+    const minY = Math.min(...allY);
+    const maxY = Math.max(...allY);
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+    const scale = PLAN_SCALE;
+    const wallThickness = WALL_THICKNESS * scale;
+    const wallHeight = 120 * scale;
+    console.log('draw transform', { centerX, centerY, scale, wallCount: wallItems.length });
+
+    fitCameraToPlan(minX, maxX, minY, maxY, scale);
+    updateFloor(walls, rooms);
+
+    // Draw interior room volumes and semantic labels.
+    let hallLabelCount = 0;
+    roomItems.forEach((r, index) => {
+        const bounds = r.bounds || r;
+        const x1 = bounds[0][0];
+        const y1 = bounds[0][1];
+        const x2 = bounds[1][0];
+        const y2 = bounds[1][1];
+        const width = Math.max(1, Math.abs(x2 - x1)) * scale;
+        const depth = Math.max(1, Math.abs(y2 - y1)) * scale;
+        const height = 24 * scale;
+
+        const labelText = r.label || roomNames[index] || `Room ${index + 1}`;
+        const geo = new THREE.BoxGeometry(width, height, depth);
+        const mat = new THREE.MeshStandardMaterial({ color: getRoomColor(r.label), roughness: 0.72, metalness: 0.12, opacity: 0.45, transparent: true, emissive: 0x111111, emissiveIntensity: 0.1 });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.x = (((x1 + x2) / 2) - centerX) * scale;
+        mesh.position.y = height / 2;
+        mesh.position.z = (((y1 + y2) / 2) - centerY) * scale;
+        mesh.receiveShadow = true;
+        mesh.userData = { type: 'room', label: labelText, bounds: bounds };
+        scene.add(mesh);
+
+        const roomLabel = makeLabelSprite(labelText);
+        roomLabel.position.set(mesh.position.x, height + 10, mesh.position.z);
+        roomLabel.scale.set(Math.max(40, width * 0.12), 14, 1);
+        roomLabel.name = 'room-label';
+        scene.add(roomLabel);
+
+        const isBathroom = labelText.toLowerCase() === 'bathroom';
+        const isHall = labelText.toLowerCase() === 'hall';
+        if (isBathroom || (isHall && hallLabelCount < 2)) {
+            addWindowBadge(mesh.position.x - 14, height + 4, mesh.position.z, 14);
+            if (isHall) hallLabelCount += 1;
+        }
+
+        if (labelText.toLowerCase().includes('bath')) {
+            const frontThickness = 10 * scale;
+            const frontHeight = 42 * scale;
+            const frontGeo = new THREE.BoxGeometry(width + 4 * scale, frontHeight, frontThickness);
+            const frontMat = new THREE.MeshStandardMaterial({ color: 0x6da7ff, roughness: 0.62, metalness: 0.08, opacity: 0.95, transparent: false, emissive: 0x112f6a, emissiveIntensity: 0.05 });
+            const frontWall = new THREE.Mesh(frontGeo, frontMat);
+            frontWall.position.set(mesh.position.x, frontHeight / 2, mesh.position.z - (depth / 2 - frontThickness / 2));
+            frontWall.castShadow = true;
+            frontWall.receiveShadow = true;
+            scene.add(frontWall);
+        }
+    });
+
+    if (!roomItems.length) {
+        // no rooms detected yet, still render structure from walls, doors, and windows
+    }
+
+    const doorItems = (doors || []);
+
+    const leftWallData = wallItems.reduce((best, w) => {
+        const midX = (w[0][0] + w[1][0]) / 2;
+        return best === null || midX < best.midX ? { wall: w, midX } : best;
+    }, null);
+
+    const wallXs = wallItems.length ? wallItems.flatMap(w => [w[0][0], w[1][0]]) : [0];
+    const wallYs = wallItems.length ? wallItems.flatMap(w => [w[0][1], w[1][1]]) : [0];
+    const minWallX = Math.min(...wallXs);
+    const maxWallX = Math.max(...wallXs);
+    const minWallY = Math.min(...wallYs);
+    const maxWallY = Math.max(...wallYs);
+    const isExternalWall = (w) => {
+        if (!wallItems.length) return false;
+        const x1 = w[0][0];
+        const y1 = w[0][1];
+        const x2 = w[1][0];
+        const y2 = w[1][1];
+        const vertical = Math.abs(x2 - x1) < Math.abs(y2 - y1);
+        if (vertical) {
+            return Math.abs(x1 - minWallX) <= 12 || Math.abs(x1 - maxWallX) <= 12;
+        }
+        return Math.abs(y1 - minWallY) <= 12 || Math.abs(y1 - maxWallY) <= 12;
+    };
+
+    const externalWallLengths = wallItems
+        .filter(isExternalWall)
+        .map(w => Math.hypot(w[1][0] - w[0][0], w[1][1] - w[0][1]));
+    const maxExternalWallLength = externalWallLengths.length ? Math.max(...externalWallLengths) : 0;
+    const longWallThreshold = Math.max(40, maxExternalWallLength * 0.7);
+
+    const isFrontLongEdgeWall = (w) => {
+        if (!isExternalWall(w)) return false;
+        const x1 = w[0][0];
+        const y1 = w[0][1];
+        const x2 = w[1][0];
+        const y2 = w[1][1];
+        const len = Math.hypot(x2 - x1, y2 - y1);
+        const horizontal = Math.abs(y2 - y1) <= 8;
+        return horizontal && Math.abs(Math.max(y1, y2) - maxWallY) <= 12 && len >= longWallThreshold;
+    };
+
+    const isEligibleWindowWall = (w) => {
+        if (!isExternalWall(w)) return false;
+        const len = Math.hypot(w[1][0] - w[0][0], w[1][1] - w[0][1]);
+        return len >= longWallThreshold && !isFrontLongEdgeWall(w);
+    };
+
+    const touchesWallSegment = (w, item) => {
+        const ix = item[0] + item[2] / 2;
+        const iy = item[1] + item[3] / 2;
+        const x1 = w[0][0];
+        const y1 = w[0][1];
+        const x2 = w[1][0];
+        const y2 = w[1][1];
+        const vertical = Math.abs(x2 - x1) < Math.abs(y2 - y1);
+        if (vertical) {
+            return Math.abs(ix - x1) <= 16 && iy >= Math.min(y1, y2) - 10 && iy <= Math.max(y1, y2) + 10;
+        }
+        return Math.abs(iy - y1) <= 16 && ix >= Math.min(x1, x2) - 10 && ix <= Math.max(x1, x2) + 10;
+    };
+
+    const frontLongWallItems = wallItems.filter(isFrontLongEdgeWall);
+    const filteredWindowItems = (windowItems || []).filter(w => {
+        if (frontLongWallItems.some(frontWall => touchesWallSegment(frontWall, w))) {
+            return false;
+        }
+        return !doorItems.some(d => {
+            const win = { x1: w[0], y1: w[1], x2: w[0] + w[2], y2: w[1] + w[3] };
+            const door = { x1: d[0], y1: d[1], x2: d[0] + d[2], y2: d[1] + d[3] };
+            return win.x1 < door.x2 && win.x2 > door.x1 && win.y1 < door.y2 && win.y2 > door.y1;
+        });
+    });
+    if (filteredWindowItems.length !== windowItems.length) {
+        console.log('filtered windows overlapping doors', windowItems.length - filteredWindowItems.length);
+    }
+
+    const wallSegments = wallItems.map(w => {
+        const x1 = w[0][0];
+        const y1 = w[0][1];
+        const x2 = w[1][0];
+        const y2 = w[1][1];
+        const isVertical = Math.abs(x2 - x1) < Math.abs(y2 - y1);
+        return {
+            x1,
+            y1,
+            x2,
+            y2,
+            minX: Math.min(x1, x2),
+            maxX: Math.max(x1, x2),
+            minY: Math.min(y1, y2),
+            maxY: Math.max(y1, y2),
+            isVertical
+        };
+    });
+
+    const snapToWallItem = (item) => {
+        if (!wallSegments.length) return item;
+        const x = item[0];
+        const y = item[1];
+        const width = item[2];
+        const height = item[3];
+        const centerX = x + width / 2;
+        const centerY = y + height / 2;
+        let best = null;
+        const threshold = 24;
+        wallSegments.forEach(seg => {
+            let dist;
+            if (seg.isVertical) {
+                const dx = Math.abs(centerX - seg.x1);
+                let cy = Math.max(seg.minY, Math.min(seg.maxY, centerY));
+                if (centerY < seg.minY) cy = seg.minY;
+                if (centerY > seg.maxY) cy = seg.maxY;
+                const dy = centerY - cy;
+                dist = Math.hypot(dx, dy);
+            } else {
+                const dy = Math.abs(centerY - seg.y1);
+                let cx = Math.max(seg.minX, Math.min(seg.maxX, centerX));
+                if (centerX < seg.minX) cx = seg.minX;
+                if (centerX > seg.maxX) cx = seg.maxX;
+                const dx = centerX - cx;
+                dist = Math.hypot(dx, dy);
+            }
+            if (dist <= threshold && (best === null || dist < best.dist)) {
+                best = { seg, dist };
+            }
+        });
+        if (!best) return item;
+        const seg = best.seg;
+        if (seg.isVertical) {
+            const snapCenterY = Math.max(seg.minY + height / 2, Math.min(seg.maxY - height / 2, centerY));
+            return [Math.round(seg.x1 - width / 2), Math.round(snapCenterY - height / 2), width, height];
+        }
+        const snapCenterX = Math.max(seg.minX + width / 2, Math.min(seg.maxX - width / 2, centerX));
+        return [Math.round(snapCenterX - width / 2), Math.round(seg.y1 - height / 2), width, height];
+    };
+
+    const snappedDoorItems = doorItems.map(snapToWallItem);
+    const snappedWindowItems = filteredWindowItems.map(snapToWallItem);
+
+    if (wallItems.length) {
+        wallItems.forEach(w => {
+            if (!isEligibleWindowWall(w)) return;
+            if (snappedWindowItems.some(win => touchesWallSegment(w, win))) return;
+            const dx = w[1][0] - w[0][0];
+            const dy = w[1][1] - w[0][1];
+            const len = Math.max(1, Math.hypot(dx, dy));
+            const windowHeight = 18 * scale;
+            const isVerticalWall = Math.abs(dx) < Math.abs(dy);
+            const windowLength = Math.max(20, Math.min(0.25 * len, 60)) * scale;
+            const thickness = 4 * scale;
+            const windowGeo = isVerticalWall
+                ? new THREE.BoxGeometry(thickness, windowHeight, windowLength)
+                : new THREE.BoxGeometry(windowLength, windowHeight, thickness);
+            const windowMat = new THREE.MeshStandardMaterial({ color: 0x0000ff, roughness: 0.5, metalness: 0.1, emissive: 0x000044, emissiveIntensity: 0.12, side: THREE.DoubleSide });
+            const windowMesh = new THREE.Mesh(windowGeo, windowMat);
+            const midX = (w[0][0] + w[1][0]) / 2;
+            const midY = (w[0][1] + w[1][1]) / 2;
+            windowMesh.position.set((midX - centerX) * scale, wallHeight * 0.7, (midY - centerY) * scale);
+            const windowDepth = thickness;
+            const attachOffset = (wallThickness + windowDepth) / 2;
+            if (isVerticalWall) {
+                windowMesh.position.x += attachOffset;
+            } else {
+                windowMesh.position.z += attachOffset;
+            }
+            windowMesh.castShadow = true;
+            windowMesh.receiveShadow = true;
+            windowMesh.scale.set(0.3, 0.3, 0.3);
+            windowMesh.userData = { type: 'window', label: 'Window', color: 0x0000ff, size: { w: windowLength, h: windowHeight }, material: null };
+            scene.add(windowMesh);
+        });
+    }
+
+    const windowTouchesLeftWall = (w, wall) => {
+        if (!wall) return false;
+        const winCenterX = w[0] + w[2] / 2;
+        const winCenterY = w[1] + w[3] / 2;
+        const wallDx = wall[1][0] - wall[0][0];
+        const wallDy = wall[1][1] - wall[0][1];
+        const isVertical = Math.abs(wallDx) < Math.abs(wallDy);
+        if (isVertical) {
+            const wallX = wall[0][0];
+            const minY = Math.min(wall[0][1], wall[1][1]) - 10;
+            const maxY = Math.max(wall[0][1], wall[1][1]) + 10;
+            return Math.abs(winCenterX - wallX) < 12 && winCenterY >= minY && winCenterY <= maxY;
+        }
+        const wallY = wall[0][1];
+        const minX = Math.min(wall[0][0], wall[1][0]) - 10;
+        const maxX = Math.max(wall[0][0], wall[1][0]) + 10;
+        return Math.abs(winCenterY - wallY) < 12 && winCenterX >= minX && winCenterX <= maxX;
+    };
+
+    const hasLeftWallWindow = filteredWindowItems.some(w => windowTouchesLeftWall(w, leftWallData ? leftWallData.wall : null));
+    if (wallItems.length && leftWallData && !hasLeftWallWindow && !isFrontLongEdgeWall(leftWallData.wall)) {
+        const leftWall = leftWallData.wall;
+        const dx = leftWall[1][0] - leftWall[0][0];
+        const dz = leftWall[1][1] - leftWall[0][1];
+        const windowWidth = (Math.abs(dx) >= Math.abs(dz) ? 20 : 4) * scale;
+        const windowDepth = (Math.abs(dx) >= Math.abs(dz) ? 4 : 20) * scale;
+        const windowHeight = 16 * scale;
+        const [x1, y1] = leftWall[0];
+        const [x2, y2] = leftWall[1];
+        const windowX = ((x1 + x2) / 2 - centerX) * scale;
+        const windowZ = ((y1 + y2) / 2 - centerY) * scale;
+        const windowGeo = new THREE.BoxGeometry(windowWidth, windowHeight, windowDepth);
+        const windowMat = new THREE.MeshStandardMaterial({ color: 0x0000ff, roughness: 0.5, metalness: 0.1, emissive: 0x000044, emissiveIntensity: 0.12, side: THREE.DoubleSide });
+        const windowMesh = new THREE.Mesh(windowGeo, windowMat);
+        windowMesh.position.set(windowX, wallHeight * 0.7, windowZ);
+        const attachOffset = (wallThickness + windowDepth) / 2;
+        if (Math.abs(dx) >= Math.abs(dz)) {
+            windowMesh.position.z += attachOffset;
+        } else {
+            windowMesh.position.x += attachOffset;
+        }
+        windowMesh.castShadow = true;
+        windowMesh.receiveShadow = true;
+        windowMesh.scale.set(0.3, 0.3, 0.3);
+        windowMesh.userData = { type: 'window', label: 'Window', color: 0x0000ff, size: { w: windowWidth, h: windowHeight }, material: null };
+        scene.add(windowMesh);
+        console.log('added left-wall window');
+    }
+    // Render door elements in the scene using green material.
+    snappedDoorItems.forEach(d => {
+        const [x, y, w, h] = d;
+        const color = 0x00ff00;
+        const doorHeight = 10 * scale;
+        const thickness = 4 * scale;
+        const isHorizontal = w >= h;
+        const geo = isHorizontal
+            ? new THREE.BoxGeometry(w * scale, doorHeight, thickness)
+            : new THREE.BoxGeometry(thickness, doorHeight, h * scale);
+        const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.1, emissive: 0x004400, emissiveIntensity: 0.08, side: THREE.DoubleSide });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.x = (x + w / 2 - centerX) * scale;
+        mesh.position.y = doorHeight / 2;
+        mesh.position.z = (y + h / 2 - centerY) * scale;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.scale.set(1, 0.8, 0.3);
+        mesh.userData = { type: 'door', label: 'Door', color, size: { w, h }, material: null };
+        scene.add(mesh);
+        console.log('door object', mesh.userData);
+    });
+
+    // Render window elements as solid blue blocks, matching the door style.
+    snappedWindowItems.forEach(w => {
+        const [x, y, width, height] = w;
+        const windowHeight = Math.min(20, Math.max(12, height)) * scale;
+        const isVerticalWindow = width < height;
+        const windowLength = Math.max(width, height) * scale;
+        const thickness = 4 * scale;
+        const geo = isVerticalWindow
+            ? new THREE.BoxGeometry(thickness, windowHeight, windowLength)
+            : new THREE.BoxGeometry(windowLength, windowHeight, thickness);
+        const color = 0x0000ff;
+        const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.1, emissive: 0x000044, emissiveIntensity: 0.1, side: THREE.DoubleSide });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.x = (x + width / 2 - centerX) * scale;
+        mesh.position.y = wallHeight * 0.7;
+        mesh.position.z = (y + height / 2 - centerY) * scale;
+        const attachOffset = (wallThickness + thickness) / 2;
+        if (isVerticalWindow) {
+            mesh.position.x += attachOffset;
+        } else {
+            mesh.position.z += attachOffset;
+        }
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.scale.set(0.3, 0.3, 0.3);
+        mesh.userData = { type: 'window', label: 'Window', color, size: { w: width, h: windowHeight }, material: null };
+        scene.add(mesh);
+        console.log('window object', mesh.userData);
+
+        const frameGeo = new THREE.EdgesGeometry(geo);
+        const frameMat = new THREE.LineBasicMaterial({ color: 0x88bbff, linewidth: 1 });
+        const frame = new THREE.LineSegments(frameGeo, frameMat);
+        frame.position.copy(mesh.position);
+        scene.add(frame);
+    });
+
+    updateRoomSummary(roomItems.length);
+    if (Array.isArray(furniture) && furniture.length) {
+        addFurnitureFromDetection(furniture, centerX, centerY, scale);
+    } else {
+        roomItems.forEach(r => addFurniture(r));
+    }
+
+    renderCostReport(costReport);
+
+    wallItems.forEach((w, index) => {
+        const dx = w[1][0] - w[0][0];
+        const dz = w[1][1] - w[0][1];
+        const len = Math.max(1, Math.hypot(dx, dz));
+        const height = 120 * scale;
+
+        let wallWidth;
+        let wallDepth;
+        if (Math.abs(dx) >= Math.abs(dz)) {
+            wallWidth = len * scale;
+            wallDepth = wallThickness;
+        } else {
+            wallWidth = wallThickness;
+            wallDepth = len * scale;
+        }
+
+        const wallGeo = new THREE.BoxGeometry(wallWidth, height, wallDepth);
+        const color = 0xffff00;
+        const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.32, metalness: 0.14, emissive: 0x665500, emissiveIntensity: 0.08, flatShading: true, side: THREE.DoubleSide });
+        const mesh = new THREE.Mesh(wallGeo, mat);
+        mesh.userData = { type: 'wall', color, index: index, material: materials && materials[index] ? materials[index] : null };
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.userData = { type: 'wall', index: index, material: materials && materials[index] ? materials[index] : null };
+
+        mesh.position.x = (((w[0][0] + w[1][0]) / 2) - centerX) * scale;
+        mesh.position.y = height / 2;
+        mesh.position.z = (((w[0][1] + w[1][1]) / 2) - centerY) * scale;
+        scene.add(mesh);
+    });
+}
+
+async function setStatus(message) {
+    const status = document.getElementById('status');
+    if (status) status.textContent = message;
+}
+
+async function loadDefaultFloorplan() {
+    try {
+        let planRes = await fetch('/floorplan.png?t=' + Date.now(), { cache: 'no-store' });
+        let planUrl = '/floorplan.png';
+        if (!planRes.ok) {
+            planRes = await fetch('/static/floorplan.png?t=' + Date.now(), { cache: 'no-store' });
+            planUrl = '/static/floorplan.png';
+        }
+        if (!planRes.ok) {
+            await setStatus('Ready. Upload a floor plan to begin.');
+            showPlaceholder('Ready. Upload a floor plan image to start rendering.');
+            return;
+        }
+
+        document.getElementById('loading').style.display = 'block';
+        await setStatus('Processing floor plan...');
+        const form = new FormData();
+        const planBlob = await planRes.blob();
+        form.append('image', planBlob, 'floorplan.png');
+        showOriginalPreview(planUrl);
+        const res = await fetch('/process?ts=' + Date.now(), { method: 'POST', body: form, cache: 'no-store' });
+        if (!res.ok) {
+            const text = await res.text();
+            console.error('Server error', text);
+            await setStatus('Server error');
+            return;
+        }
+            const data = await res.json();
+        showEdgePreview(data.edgePreview, data.edgePreviewPath);
+        showIpfsLink(data.ipfs_url, data.ipfs_url_public);
+        draw(data.walls, data.rooms, data.doors, data.windows, data.materials, data.furniture, data.costReport);
+        latestModel = data;
+        await setStatus('Loaded floor plan');
+    } catch (err) {
+        console.warn('Default floorplan missing', err);
+        showIpfsLink(null, null);
+        await setStatus('Ready. Upload a floor plan to begin.');
+        showPlaceholder('Ready. Upload a floor plan image to start rendering.');
+    } finally {
+        document.getElementById('loading').style.display = 'none';
+    }
+}
+
+async function uploadFloorplan() {
+    const file = document.getElementById('upload').files[0];
+    if (!file) {
+        alert('Choose an image file first.');
+        return;
+    }
+    showIpfsLink(null, null);
+    showOriginalPreview(file);
+    clearScene();
+    showPlaceholder('Processing uploaded floor plan...');
+    document.getElementById('loading').style.display = 'block';
+    await setStatus('Processing uploaded floor plan...');
+    const form = new FormData();
+    form.append('image', file, file.name);
+    const res = await fetch('/process?ts=' + Date.now(), { method: 'POST', body: form, cache: 'no-store' });
+    if (!res.ok) {
+        const text = await res.text();
+        console.error('Server error', text);
+        showIpfsLink(null, null);
+        await setStatus('Server error');
+        showPlaceholder('Upload failed. Please try a different image.');
+        document.getElementById('loading').style.display = 'none';
+        return;
+    }
+    const data = await res.json();
+    latestModel = data;
+    showEdgePreview(data.edgePreview, data.edgePreviewPath);
+    showIpfsLink(data.ipfs_url, data.ipfs_url_public);
+    document.getElementById('upload').value = '';
+    draw(data.walls, data.rooms, data.doors, data.windows, data.materials, data.furniture, data.costReport);
+    document.getElementById('loading').style.display = 'none';
+    await setStatus('Uploaded floor plan rendered');
+}
+
+function exportModel() {
+    if (!latestModel) {
+        alert('No model available yet.');
+        return;
+    }
+    if (window.THREE && THREE.GLTFExporter) {
+        const exporter = new THREE.GLTFExporter();
+        exporter.parse(scene, function(result) {
+            const output = JSON.stringify(result, null, 2);
+            const blob = new Blob([output], { type: 'application/octet-stream' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'floorplan-model.gltf';
+            link.click();
+            URL.revokeObjectURL(url);
+        }, { binary: false });
+    } else {
+        const blob = new Blob([JSON.stringify(latestModel, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'floorplan-model.json';
+        link.click();
+        URL.revokeObjectURL(url);
+    }
+}
+
+try {
+    initScene();
+    loadDefaultFloorplan();
+} catch (err) {
+    console.error('Initialization failed', err);
+    const status = document.getElementById('status');
+    if (status) status.textContent = 'Initialization failed. Check console for details.';
+}
+const loader = new THREE.GLTFLoader();
+
+function loadModel(path, x, z, scale = 1) {
+    loader.load(path, function(gltf) {
+
+        const model = gltf.scene;
+
+        model.position.set(x, 0, z);   // place in room
+        model.scale.set(scale, scale, scale);
+
+        // rotate randomly for realism
+        model.rotation.y = Math.random() * Math.PI;
+
+        scene.add(model);
+    });
+}
+function getRoomCenter(room) {
+    const bounds = room.bounds || room;
+    return {
+        x: (bounds[0][0] + bounds[1][0]) / 2,
+        y: (bounds[0][1] + bounds[1][1]) / 2
+    };
+}
+
+function addFurniture(room) {
+    const center = getRoomCenter(room);
+    const x = center.x / 10;
+    const z = center.y / 10;
+
+    if (room.label === "Bedroom") {
+        loadModel("/static/models/bed.glb", x, z, 0.8);
+    } else if (room.label === "Living Room") {
+        loadModel("/static/models/Couch.glb", x, z, 1);
+    } else if (room.label === "Kitchen") {
+        loadModel("/static/models/table.glb", x, z, 0.8);
+    } else if (room.label === "Bathroom") {
+        loadModel("/static/models/toilet.glb", x, z, 0.5);
+    }
+}
+
+function addFurnitureFromDetection(furniture, centerX, centerY, scale) {
+    furniture.forEach(item => {
+        if (!item || !item.bounds || item.bounds.length < 4) return;
+        const [x, y, w, h] = item.bounds;
+        const posX = ((x + w / 2) - centerX) * scale;
+        const posZ = ((y + h / 2) - centerY) * scale;
+        let modelPath = '/static/models/bed.glb';
+        let modelScale = 0.8;
+
+        if (item.type === 'sofa') {
+            modelPath = '/static/models/Couch.glb';
+            modelScale = 1;
+        } else if (item.type === 'table') {
+            modelPath = '/static/models/table.glb';
+            modelScale = 0.7;
+        } else if (item.type === 'toilet') {
+            modelPath = '/static/models/toilet.glb';
+            modelScale = 0.45;
+        } else if (item.type === 'bed') {
+            modelPath = '/static/models/bed.glb';
+            modelScale = 0.85;
+        }
+
+        loadModel(modelPath, posX, posZ, modelScale);
+    });
+}
+const light = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
+scene.add(light);
+
+const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+dirLight.position.set(10,10,10);
+scene.add(dirLight);
+ const texture = new THREE.TextureLoader().load('/static/textures/floor.jpg');
+
+const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(100, 100),
+    new THREE.MeshStandardMaterial({ map: texture })
+);
+
+floor.rotation.x = -Math.PI / 2;
+scene.add(floor);
+ renderer.shadowMap.enabled = true;
+
+dirLight.castShadow = true;
+
+scene.traverse(obj => {
+    if (obj.isMesh) {
+        obj.castShadow = true;
+        obj.receiveShadow = true;
+    }
+});
+</script>
+</body>
+</html>
